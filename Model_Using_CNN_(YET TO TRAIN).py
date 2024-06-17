@@ -6,7 +6,8 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization, Input, GlobalAveragePooling2D
 from tensorflow.keras.optimizers import Adam
-import tensorflow.keras.callbacks as keras_callbacks
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+import tensorflow as tf
 
 # Data Preparation
 train_directory = r'C:\Users\dhruv\Model_dev_yt\train'
@@ -31,14 +32,14 @@ test_datagen = ImageDataGenerator(
 # Create Data Generators
 train_data = train_datagen.flow_from_directory(
     train_directory,
-    class_mode='categorical',
+    class_mode='binary',
     target_size=(256, 256),
     batch_size=32
 )
 
 test_data = test_datagen.flow_from_directory(
     test_directory,
-    class_mode='categorical',
+    class_mode='binary',
     target_size=(256, 256),
     batch_size=32
 )
@@ -90,27 +91,27 @@ model = Sequential([
     Dropout(0.5),
     BatchNormalization(),
 
-    Dense(train_data.num_classes, activation='softmax')
+    Dense(1, activation='sigmoid')  # Change to sigmoid for binary classification
 ])
 
 # Model Compilation
 model.compile(
     optimizer=Adam(learning_rate=0.0001),
-    loss='categorical_crossentropy',
+    loss='binary_crossentropy',
     metrics=['accuracy']
 )
 
 # Callbacks
-early_stopping = keras_callbacks.EarlyStopping(
+early_stopping = EarlyStopping(
     monitor="val_loss",
     min_delta=0,
-    patience=10,  # Increased patience for a more thorough training
+    patience=10,
     verbose=1,
     mode="auto",
     restore_best_weights=True
 )
 
-model_checkpoint = keras_callbacks.ModelCheckpoint(
+model_checkpoint = ModelCheckpoint(
     "best_model.h5",
     monitor="val_loss",
     save_best_only=True,
@@ -123,7 +124,7 @@ callbacks = [early_stopping, model_checkpoint]
 history = model.fit(
     train_data,
     validation_data=test_data,
-    epochs=50,  # Increased number of epochs
+    epochs=50,
     callbacks=callbacks
 )
 
@@ -152,5 +153,24 @@ def plot_metrics(history):
 
 plot_metrics(history)
 
+# Save the final model
+model.save('final_model.keras')
 
+# Convert the best model to TensorFlow Lite format
+best_model = tf.keras.models.load_model('best_model.h5')
 
+# Save the model in the SavedModel format
+saved_model_dir = 'saved_model/'
+best_model.save(saved_model_dir)
+
+# Convert the model to TensorFlow Lite format
+converter = tf.lite.TFLiteConverter.from_saved_model(saved_model_dir)
+converter.optimizations = [tf.lite.Optimize.DEFAULT]  # Apply optimizations
+
+tflite_model = converter.convert()
+
+# Save the converted TensorFlow Lite model
+with open('converted_model.tflite', 'wb') as f:
+    f.write(tflite_model)
+
+print("Model converted and saved successfully as converted_model.tflite")
