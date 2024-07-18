@@ -72,7 +72,7 @@ Epoch 10/10
 
 """
 
-# Load the saved keras model { model.save('weed_detection_model.h5' }
+# Loading the saved keras model { model.save('weed_detection_model.h5' }
 
 model = tf.keras.models.load_model('weed_detection_model.h5'
 
